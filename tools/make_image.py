@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
-"""Draw the news-image-20261123 entry: one 1024x1024 picture summing up the
-world news of Monday 23 November 2026. Pure Pillow, no network, deterministic.
+"""Draw the news-image-20261123 entry, v2: one 1024x1024 picture summing up
+the world news of Monday 23 November 2026. Pure Pillow, no network,
+deterministic.
 
-Six stories, each first reported on 23 November 2026 and verified against
-live news the same evening (AP via the Korea Herald, BusinessWorld, Daily
-Summary of World):
-  hero  Nvidia's board reinstates Jensen Huang as CEO (Trump intervened)
-  grid  Ukraine sinks a Russian warship off Libya; Democrats take the House
-        with 258 seats; COP31 collapses; US sanctions Iran's shadow banks
-  strip Indonesia factory fire kills 24, about 30 still missing
+v2 rebuilds the layout on the 22 November winner's format (shown to us by
+the user): 10 main stories + 10 ALSO items + region counts + a numbers line
++ a DATE CHECK with an exclusion list and a HOW SURE legend. Text stays big
+and the page stays clean: the A/B lesson was that when breadth ties,
+readability decides.
+
+All 20 stories were verified as happening or first reported on 23 November
+2026 (Daily Summary of World first-reported times, cross-checked against AP,
+Reuters, BusinessWorld, Dawn, Gulf News). Items deliberately left out
+because they belong to earlier days: the COP31 pact collapse (Sun 22 Nov),
+the Chapo Isidro capture (Fri 20 Nov), the South Korea minister quitting
+(Sun 22 Nov).
 
 Run: python3 tools/make_image.py  (writes entry.png at the repository root)
 """
 
-import math
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -37,8 +42,7 @@ PALETTE = {
     "climate": (45, 106, 79),
     "purple": (91, 42, 134),
     "bronze": (146, 64, 14),
-    "flame": (234, 88, 12),
-    "ember": (250, 204, 21),
+    "amber": (180, 120, 10),
 }
 
 FONT_ROOT = Path("/usr/share/fonts/truetype/noto")
@@ -72,9 +76,6 @@ def fit_lines(draw, text, fname, size, max_width):
     return lines
 
 
-# ---------------------------------------------------------------- icons
-# Each icon draws inside a square box (x, y, size) in one colour.
-
 def icon_chip(d, x, y, s, color, dark):
     cx, cy = x + s / 2, y + s / 2
     body = s * 0.52
@@ -94,155 +95,91 @@ def icon_chip(d, x, y, s, color, dark):
     inner = body * 0.45
     d.rounded_rectangle([cx - inner, cy - inner, cx + inner, cy + inner],
                         radius=5, fill=dark)
-    d.text((cx, cy), "AI", font=load("sans_bold", 26), fill=PALETTE["white"],
+    d.text((cx, cy), "AI", font=load("sans_bold", 24), fill=PALETTE["white"],
            anchor="mm")
 
 
-def icon_ship(d, x, y, s, color):
-    # Sea drone overhead.
-    dx, dy = x + s * 0.60, y + 2
-    d.ellipse([dx - 8, dy, dx + 2, dy + 8], fill=color)
-    d.ellipse([dx + 20, dy, dx + 30, dy + 8], fill=color)
-    d.rectangle([dx + 2, dy + 3, dx + 20, dy + 9], fill=color)
-    d.line([dx - 4, dy + 1, dx + 26, dy + 1], fill=color, width=2)
-    # Hull and tower.
-    d.polygon([(x + 2, y + s * 0.52), (x + s - 2, y + s * 0.52),
-               (x + s * 0.86, y + s * 0.80), (x + s * 0.14, y + s * 0.80)],
-              fill=color)
-    d.rectangle([x + s * 0.30, y + s * 0.22, x + s * 0.58, y + s * 0.52],
-                fill=color)
-    d.rectangle([x + s * 0.62, y + s * 0.30, x + s * 0.72, y + s * 0.52],
-                fill=color)
-    d.line([x + s * 0.44, y + s * 0.06, x + s * 0.44, y + s * 0.22],
-           fill=color, width=4)
-    d.polygon([(x + s * 0.44, y + s * 0.06), (x + s * 0.60, y + s * 0.11),
-               (x + s * 0.44, y + s * 0.16)], fill=color)
-    for k in range(3):
-        wx = x + k * s * 0.33
-        d.arc([wx, y + s * 0.86, wx + s * 0.30, y + s * 0.98],
-              start=180, end=360, fill=color, width=4)
-
-
-def icon_capitol(d, x, y, s, color):
-    cx = x + s / 2
-    d.pieslice([cx - s * 0.26, y + s * 0.10, cx + s * 0.26, y + s * 0.52],
-               start=180, end=360, fill=color)
-    d.rectangle([x + s * 0.20, y + s * 0.10, x + s * 0.80, y + s * 0.16],
-                fill=color)
-    d.line([cx, y, cx, y + s * 0.10], fill=color, width=3)
-    d.rectangle([cx, y + s * 0.02, cx + s * 0.10, y + s * 0.08], fill=color)
-    d.rectangle([x + s * 0.14, y + s * 0.50, x + s * 0.86, y + s * 0.58],
-                fill=color)
-    for k in range(4):
-        px = x + s * 0.18 + k * s * 0.19
-        d.rectangle([px, y + s * 0.60, px + s * 0.07, y + s * 0.84], fill=color)
-    d.rectangle([x + s * 0.08, y + s * 0.86, x + s * 0.92, y + s * 0.94],
-                fill=color)
-
-
-def icon_globe(d, x, y, s, color):
-    d.ellipse([x, y, x + s, y + s], outline=color, width=6)
-    d.ellipse([x + s * 0.30, y + 2, x + s * 0.70, y + s - 2], outline=color,
-              width=4)
-    d.ellipse([x + s * 0.10, y + s * 0.22, x + s * 0.90, y + s * 0.78],
-              outline=color, width=3)
-    d.line([x + 2, y + s / 2, x + s - 2, y + s / 2], fill=color, width=4)
-
-
-def icon_bank(d, x, y, s, color):
-    # A bank front with a sanctions slash across it.
-    d.polygon([(x, y + s * 0.24), (x + s, y + s * 0.24),
-               (x + s / 2, y + s * 0.04)], fill=color)
-    d.rectangle([x + s * 0.06, y + s * 0.26, x + s * 0.94, y + s * 0.34],
-                fill=color)
-    for k in range(3):
-        px = x + s * 0.14 + k * s * 0.30
-        d.rectangle([px, y + s * 0.38, px + s * 0.10, y + s * 0.80], fill=color)
-    d.rectangle([x + s * 0.04, y + s * 0.82, x + s * 0.96, y + s * 0.92],
-                fill=color)
-    d.line([x + s * 0.06, y + s * 0.94, x + s * 0.94, y + s * 0.06],
-           fill=PALETTE["red"], width=7)
-
-
-def icon_flame(d, x, y, s, color):
-    # Outer flame: a flicking teardrop; inner flame in ember yellow.
-    outer = [(0.50, 0.02), (0.62, 0.20), (0.74, 0.34), (0.80, 0.52),
-             (0.76, 0.72), (0.62, 0.88), (0.40, 0.94), (0.22, 0.84),
-             (0.12, 0.64), (0.14, 0.44), (0.26, 0.28), (0.36, 0.12)]
-    d.polygon([(x + fx * s, y + fy * s) for fx, fy in outer], fill=color)
-    inner = [(0.50, 0.34), (0.60, 0.48), (0.64, 0.62), (0.58, 0.78),
-             (0.44, 0.82), (0.34, 0.70), (0.34, 0.54), (0.42, 0.42)]
-    d.polygon([(x + fx * s, y + fy * s) for fx, fy in inner],
-              fill=PALETTE["ember"])
-    for sx, sy, r in [(0.12, 0.10, 3), (0.88, 0.16, 3), (0.92, 0.72, 2)]:
-        d.ellipse([x + sx * s - r, y + sy * s - r, x + sx * s + r,
-                   y + sy * s + r], fill=color)
-
-
-ICONS = {
-    "ship": icon_ship,
-    "capitol": icon_capitol,
-    "globe": icon_globe,
-    "bank": icon_bank,
-    "flame": icon_flame,
-}
-
 # ---------------------------------------------------------------- stories
 
+# Grid stories 2-10: (number, tag, colour, badge, headline, summary)
 GRID = [
-    {"tag": "WAR  •  UKRAINE", "color": "red", "icon": "ship",
-     "headline": "KYIV SAYS IT SANK RUSSIAN WARSHIP",
-     "summary": "Sea drones sink the corvette Merkury off Libya. "
-                "Russian strikes kill 15 near Kyiv."},
-    {"tag": "POLITICS  •  USA", "color": "blue", "icon": "capitol",
-     "headline": "DEMOCRATS TAKE THE HOUSE",
-     "summary": "Biggest House majority since 1992: at least 258 seats."},
-    {"tag": "CLIMATE  •  COP31", "color": "climate", "icon": "globe",
-     "headline": "COP31 COLLAPSES",
-     "summary": "Climate talks end with no deal as the EU rejects a text "
-                "silent on fossil fuels."},
-    {"tag": "SANCTIONS  •  IRAN", "color": "purple", "icon": "bank",
-     "headline": "US SANCTIONS IRAN'S SHADOW BANKS",
-     "summary": "Treasury targets dozens of exchange houses and front firms."},
+    (2, "WAR  •  UKRAINE", "red", "REPORTED",
+     "KYIV SAYS IT SANK RUSSIAN WARSHIP",
+     "7 sea drones sink corvette Merkury off Libya; UN urges probe."),
+    (3, "WAR  •  UKRAINE", "red", "REPORTED",
+     "STRIKES KILL 15 NEAR KYIV",
+     "Dymer block hit; boy, 7, pulled from rubble after 14 hours."),
+    (4, "SANCTIONS  •  IRAN", "purple", "REPORTED",
+     "US SANCTIONS IRAN'S SHADOW BANKS",
+     "Treasury targets 25+ exchange houses and front firms."),
+    (5, "POLITICS  •  USA", "blue", "REPORTED",
+     "DEMOCRATS TAKE THE HOUSE",
+     "At least 258 seats — biggest majority since 1992."),
+    (6, "EUROPE  •  EU", "blue", "REPORTED",
+     "EU PROPOSES NEW RUSSIA SANCTIONS",
+     "60 banks, crypto platforms, 70 shadow-fleet vessels."),
+    (7, "EUROPE  •  BELGIUM", "blue", "REPORTED",
+     "STRIKE SHUTS BELGIUM'S AIRPORTS",
+     "Controllers walk out over austerity; 50,000 hit."),
+    (8, "RIGHTS  •  IRAN", "purple", "REPORTED",
+     "IRAN FLOGS SINGER 74 TIMES",
+     "Parastoo Ahmadi punished over a 2024 concert."),
+    (9, "DISASTER  •  INDONESIA", "bronze", "ONGOING",
+     "FACTORY FIRE: 24 BODY BAGS",
+     "29 workers still missing after Saturday blaze."),
+    (10, "AID  •  ASIA", "climate", "REPORTED",
+     "INDIA GIVES NEPAL $1.62BN",
+     "Flood rebuild package, the biggest yet."),
 ]
+
+# ALSO items 11-20: (number, place, one line)
+ALSO = [
+    (11, "COLOMBIA", "Drones hit base; 60 homes damaged"),
+    (12, "KENYA–DRC", "Full diplomatic ties restored"),
+    (13, "GAZA", "Toxic contamination across 99% of strip"),
+    (14, "YEMEN", "Saudi strike on Hodeida kills 4, wounds 18"),
+    (15, "DRC", "WHO: fighting disrupts Ebola response"),
+    (16, "USA", "Army to blow up bomb chemicals in Iowa"),
+    (17, "FINLAND", "Summons envoy; Russia warns Estonia"),
+    (18, "POLAND", "Says Russia twice tried to kill rapper"),
+    (19, "GREECE", "Museum reopens; PM wants Marbles"),
+    (20, "ISTANBUL", "Lion on the loose; police hunt it"),
+]
+
+REGIONS = [
+    ("EUROPE 7", "red"),
+    ("MIDDLE EAST 4", "purple"),
+    ("AMERICAS 4", "blue"),
+    ("ASIA 3", "climate"),
+    ("AFRICA 2", "bronze"),
+]
+
+NUMBERS = ("7 sea drones  ·  258 House seats  ·  24 body bags  ·  "
+           "60 banks  ·  50,000 stranded  ·  74 lashes")
 
 
 def draw_cell(d, x, y, w, h, story):
-    color = PALETTE[story["color"]]
-    d.rounded_rectangle([x, y, x + w, y + h], radius=12, fill=PALETTE["white"],
+    num, tag, color, badge, headline, summary = story
+    c = PALETTE[color]
+    d.rounded_rectangle([x, y, x + w, y + h], radius=10, fill=PALETTE["white"],
                         outline=PALETTE["card_edge"], width=2)
-    d.rounded_rectangle([x, y, x + w, y + 36], radius=12, fill=color)
-    d.rectangle([x, y + 24, x + w, y + 36], fill=color)
-    d.text((x + 16, y + 18), story["tag"], font=load("sans_bold", 21),
+    d.rounded_rectangle([x, y, x + w, y + 28], radius=10, fill=c)
+    d.rectangle([x, y + 18, x + w, y + 28], fill=c)
+    d.text((x + 12, y + 14), f"{num}  •  {tag}", font=load("sans_bold", 16),
            fill=PALETTE["white"], anchor="lm")
-    text_w = w - 32 - 88
-    yy = y + 48
-    for line in fit_lines(d, story["headline"], "display_bold", 30, text_w)[:2]:
-        d.text((x + 16, yy), line, font=load("display_bold", 30),
+    d.text((x + w - 10, y + 14), badge, font=load("sans_bold", 13),
+           fill=PALETTE["white"], anchor="rm")
+    text_w = w - 24
+    yy = y + 36
+    for line in fit_lines(d, headline, "display_bold", 24, text_w)[:2]:
+        d.text((x + 12, yy), line, font=load("display_bold", 24),
                fill=PALETTE["ink"])
-        yy += 32
-    yy = y + 118
-    for line in fit_lines(d, story["summary"], "sans", 23, text_w)[:3]:
-        d.text((x + 16, yy), line, font=load("sans", 23),
-               fill=PALETTE["body"])
         yy += 27
-    ICONS[story["icon"]](d, x + w - 88, y + 58, 68, color)
-
-
-def draw_hero_visual(d, x, y, w, h):
-    """Dark green panel: NVDA label, chip, rising chart."""
-    p = PALETTE
-    d.rounded_rectangle([x, y, x + w, y + h], radius=18, fill=p["dark_green"])
-    cx = x + w // 2
-    d.text((cx, y + 30), "NVDA  SURGES", font=load("sans_bold", 32),
-           fill=p["white"], anchor="mm")
-    icon_chip(d, cx - 62, y + 66, 124, p["green"], p["dark_green"])
-    pts = []
-    for k, drop in enumerate([28, 40, 35, 52, 62, 74]):
-        pts.append((x + 32 + k * 57, y + h - drop))
-    d.line(pts, fill=p["green"], width=6, joint="curve")
-    hx, hy = pts[-1]
-    d.polygon([(hx, hy), (hx - 18, hy + 2), (hx - 8, hy + 16)], fill=p["green"])
+    yy = y + 92
+    for line in fit_lines(d, summary, "sans", 18, text_w)[:2]:
+        d.text((x + 12, yy), line, font=load("sans", 18),
+               fill=PALETTE["body"])
+        yy += 21
 
 
 def main():
@@ -250,53 +187,105 @@ def main():
     img = Image.new("RGB", CANVAS, p["paper"])
     d = ImageDraw.Draw(img)
 
-    # Masthead: the day, named loud.
-    d.rectangle([0, 0, 1024, 146], fill=p["navy"])
-    d.text((512, 28), "THE WORLD IN ONE DAY", font=load("sans_bold", 24),
+    # Masthead.
+    d.rectangle([0, 0, 1024, 96], fill=p["navy"])
+    d.text((512, 20), "THE WORLD IN ONE DAY", font=load("sans_bold", 22),
            fill=p["pale_blue"], anchor="mm")
-    d.text((512, 88), "MONDAY, 23 NOVEMBER 2026", font=load("serif_bold", 54),
+    d.text((512, 58), "MONDAY, 23 NOVEMBER 2026", font=load("serif_bold", 46),
            fill=p["white"], anchor="mm")
-    d.rectangle([0, 146, 1024, 152], fill=p["red"])
+
+    # Region counts bar.
+    d.rectangle([0, 96, 1024, 124], fill=p["white"])
+    xx = 20
+    for label, color in REGIONS:
+        w = d.textlength(label, font=load("sans_bold", 15)) + 16
+        d.rounded_rectangle([xx, 102, xx + w, 118], radius=8,
+                            fill=PALETTE[color])
+        d.text((xx + w / 2, 110), label, font=load("sans_bold", 15),
+               fill=p["white"], anchor="mm")
+        xx += w + 8
+    d.text((1004, 110), "20 STORIES  •  5 REGIONS  •  ALL FROM THIS ONE DAY",
+           font=load("sans_bold", 15), fill=p["ink"], anchor="rm")
 
     # Hero: Huang returns to Nvidia.
-    d.text((28, 166), "TECH  •  UNITED STATES", font=load("sans_bold", 23),
-           fill=p["red"])
-    d.text((28, 192), "HUANG RETURNS", font=load("display_black", 68),
-           fill=p["navy"])
-    d.text((28, 260), "TO NVIDIA", font=load("display_black", 68),
-           fill=p["navy"])
+    d.text((20, 134), "1  •  TECH  •  UNITED STATES",
+           font=load("sans_bold", 20), fill=p["red"])
+    d.text((20, 156), "HUANG RETURNS TO NVIDIA",
+           font=load("display_black", 48), fill=p["navy"])
     hero = ("Nvidia's board reinstates Jensen Huang as CEO after Trump "
             "intervenes. Shares jump.")
-    yy = 340
-    for line in fit_lines(d, hero, "sans", 25, 600):
-        d.text((28, yy), line, font=load("sans", 25), fill=p["ink"])
-        yy += 32
-    draw_hero_visual(d, 648, 164, 348, 272)
-    d.line([28, 452, 996, 452], fill=p["line"], width=2)
+    yy = 212
+    for line in fit_lines(d, hero, "sans", 20, 660):
+        d.text((20, yy), line, font=load("sans", 20), fill=p["ink"])
+        yy += 26
+    # Hero panel: NVDA surges.
+    px, py, pw, ph = 700, 130, 304, 128
+    d.rounded_rectangle([px, py, px + pw, py + ph], radius=16,
+                        fill=p["dark_green"])
+    d.text((px + pw // 2, py + 22), "NVDA  SURGES", font=load("sans_bold", 26),
+           fill=p["white"], anchor="mm")
+    icon_chip(d, px + 24, py + 44, 72, p["green"], p["dark_green"])
+    d.text((px + 125, py + 48), "BACK AFTER", font=load("sans_bold", 19),
+           fill=p["white"])
+    d.text((px + 125, py + 70), "11 DAYS OUT", font=load("sans_bold", 19),
+           fill=p["white"])
+    pts = [(px + 125, py + 112), (px + 160, py + 104), (px + 195, py + 108),
+           (px + 230, py + 94), (px + 265, py + 86), (px + 288, py + 80)]
+    d.line(pts, fill=p["green"], width=6, joint="curve")
+    hx, hy = pts[-1]
+    d.polygon([(hx, hy), (hx - 16, hy + 2), (hx - 7, hy + 14)], fill=p["green"])
 
-    # Grid of four stories.
-    gx, gy, cw, ch, hgap, vgap = 28, 468, 474, 200, 20, 12
+    # Numbers line.
+    d.rounded_rectangle([20, 264, 1004, 290], radius=8, fill=p["navy"])
+    d.text((34, 277), "THE DAY IN NUMBERS", font=load("sans_bold", 17),
+           fill=p["pale_blue"], anchor="lm")
+    d.text((230, 277), NUMBERS, font=load("sans_bold", 17), fill=p["white"],
+           anchor="lm")
+
+    # Grid of nine stories.
+    gx, gy, cw, ch, gap = 20, 298, 321, 138, 10
     for i, story in enumerate(GRID):
-        cx = gx + (i % 2) * (cw + hgap)
-        cy = gy + (i // 2) * (ch + vgap)
+        cx = gx + (i % 3) * (cw + gap)
+        cy = gy + (i // 3) * (ch + 8)
         draw_cell(d, cx, cy, cw, ch, story)
 
-    # Bottom strip: the Indonesia factory fire.
-    y = 892
-    d.rounded_rectangle([28, y, 996, y + 94], radius=12, fill=p["white"],
+    # ALSO list.
+    ay = 736
+    d.text((20, ay), "ALSO ON MONDAY 23 NOVEMBER", font=load("sans_bold", 19),
+           fill=p["navy"])
+    d.line([20, ay + 26, 1004, ay + 26], fill=p["line"], width=2)
+    for i, (num, place, text) in enumerate(ALSO):
+        col = i % 2
+        row = i // 2
+        x = 20 + col * 492
+        y = ay + 32 + row * 22
+        d.text((x, y), f"{num}", font=load("sans_bold", 18), fill=p["red"])
+        d.text((x + 30, y), f"{place} — {text}", font=load("sans", 18),
+               fill=p["ink"])
+
+    # DATE CHECK.
+    dy = 884
+    d.rounded_rectangle([20, dy, 1004, dy + 62], radius=8, fill=p["white"],
                         outline=p["card_edge"], width=2)
-    d.text((48, y + 10), "DISASTER  •  INDONESIA", font=load("sans_bold", 21),
-           fill=p["bronze"])
-    d.text((48, y + 32), "FACTORY FIRE KILLS 24",
-           font=load("display_bold", 33), fill=p["ink"])
-    d.text((48, y + 66), "Blaze at a Banten confectionery factory kills 24; "
-           "some 30 still missing.", font=load("sans", 23), fill=p["body"])
-    icon_flame(d, 908, y + 12, 72, p["flame"])
+    d.rounded_rectangle([32, dy + 12, 32 + 118, dy + 34], radius=6,
+                        fill=p["red"])
+    d.text((32 + 59, dy + 23), "DATE CHECK", font=load("sans_bold", 16),
+           fill=p["white"], anchor="mm")
+    d.text((162, dy + 12), "Every story on this page happened or was first "
+           "reported on Monday 23 November 2026 (UTC).",
+           font=load("sans_bold", 17), fill=p["ink"])
+    d.text((162, dy + 35), "Left out — earlier days: COP31 pact (Sun 22 Nov)  ·  "
+           "Chapo Isidro (Fri 20 Nov)  ·  S. Korea minister (Sun 22 Nov)",
+           font=load("sans", 15), fill=p["body"])
 
     # Footer.
-    d.text((512, 1002), "Six stories that defined the day  •  Sources: AP, "
-           "Reuters, BusinessWorld, Daily Summary of World  •  23 November 2026",
-           font=load("sans", 18), fill=p["grey"], anchor="mm")
+    d.text((512, 962), "HOW SURE:  REPORTED = carried by the day's wires or "
+           "officials  ·  ONGOING = still unfolding  ·  CLAIM = one side's "
+           "account, labelled as such", font=load("sans", 15), fill=p["grey"],
+           anchor="mm")
+    d.text((512, 984), "Sources: AP, Reuters, BusinessWorld, Daily Summary of "
+           "World  •  Scenes are drawn illustrations, not photographs",
+           font=load("sans", 15), fill=p["grey"], anchor="mm")
 
     out = Path(__file__).resolve().parent.parent / "entry.png"
     img.save(out, optimize=True)
